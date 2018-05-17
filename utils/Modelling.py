@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import itertools
 
 from sklearn import model_selection
-from sklearn import tree, random_forest, ExtraTreesClassifier
+from sklearn import svm, tree, linear_model, neighbors, naive_bayes, ensemble, discriminant_analysis, gaussian_process
 from sklearn.model_selection import learning_curve, Shuffle_split
 from sklearn.ensemble import random_forest, GradientBoostingClassifier
 from sklearn.svm import SVC
@@ -23,10 +23,13 @@ def show_tools():
     print("""
         1. firstly we need to select and initialize models:
         MLA = [...]
+
         2. cross validation
         cv_split = model_selection.ShuffleSplit(n_splits = 10, test_size = .3, train_size = .6, random_state = 0)
+
         3. create table to compare MLA metrics
         MLA_columns = ['MLA Name', 'MLA PArameters', 'MLA Train Accuracy Mean', 'MLA Test Accuracy Mean', 'MLA Test Accuracy 3*STD', 'MLA Time']
+
         4. index through MLA and save performance to table
         MLA_compare.loc[row_index, 'MLA Name'] = alg.__class__.__name__
         MLA_compare.loc[row_index, 'MLA Parameters'] = str(alg.get_params())
@@ -35,110 +38,59 @@ def show_tools():
         MLA_compare.loc[row_index, 'MLA Train Accuracy Mean'] = cv.results['train_score'].mean() # out of date!!!!
         MLA_compare.loc[row_index, 'MLA Test Accuracy Mean'] = cv.results['test_score'].mean()
         MLA_compare.loc[row_index, 'MLA Test Accuracy 3*STD'] = cv.result['tst_score'].std()*3
+
         5. next step is valuate the result, usually we use confusion matrix to do it
         from sklearn.metrics import confusion_matrix
         cm = confusion_matrix(y_true, y_pred)
         classes = ['Dead', 'Survived']
         plt.figure()
         plot_confusion_matrix(cm, classes, normalize=False, title='..', cmap=plt.cm.Blues)
+
         6. to get a better score, we need to fine tune the model
-        tune_model = finetune_dt_gridsearch()
+        tune_model = finetune_gridsearch(model = 'adaBoost')
         tune_model.fit(train_x, train_y)
         print('After DT Parameters: ', tune_model.best_params_)
         tune_model.cv_results_['mean_train_score'][tune_model.best_index_]*100
         tune_model.cv_results_['mean_test_score'][tune_model.best_index_]*100
-        similar we have these methods:
-        finetune_etc_gridsearch() # ExtraTreesClassifier
-        finetune_gbc_gridsearch() # GradientBoostingClassifier
-        finetune_svc_gridsearch() 
-        finetune_rf_gridsearch() # random forest
+        the models that we can use in finetune_gridsearch function include:
+        adaBoost: AdaBoostClassifier
+        bagging: BaggingClassifier
+        extraTrees: ExtraTreesClassifier
+        gradientBoosting: GradientBoostingClassifier
+        randomForest: RandomForestClassifier
+        gaussianProcess: GaussianProcessClassifier
+        logisticRegression: LogisticRegressionCV
+        bernoulliNB: BernoulliNB
+        kNeighbors: KNeighborsClassifier
+        svc: SVC
+        xgbc: XGBClassifier
+
         we can plot the learning curve with the function
         plot_learning_curve(estimator, title, X, y, ylim = None, cv = None, n_jobs = -1, train_sizes = np.linspace(.1,1.0, 5))
+
         7. besides we can also use feature selection to tune the model
         es_rfe = feature_selectoin.RFECV(estimator, step = 1, scoring = 'accuracy', cv = cv_split)
         es_rfe.fit(train_x, train_y)
         X_rfe = train_x.columns.values[es_rfe.get_support()] # extract features
         rfe_result = model_selection.cross_validation(dtree, train_x[X_rfe], train_y, cv =cv_split)
+        8. why choose one model, when we have more
+        vote_est = [
+            ('ada', ensemble.AdaBoostClassifier()),
+            ('bc', ensemble.BaggingClassifier()),
+            ...
+        ]
+        vote_hard = ensemble.VotingClassifier(estimators = vote_est, voting = 'hard')
+        vote_soft = ensemble.VotingClassifier(estimators = vote_est, voting = 'soft')
+        ps. 一个问题是，这种投票机制，无法实现为各个子model私人定制训练属性。因此只能先超参选后，最后加一个总的属性选，要克服这个问题，应该自己重写一个ensemble的方法，实现用训练好的模型进行投票。(为完成)
     """)
 
-
-def finetune_dt_gridsearch():
+def finetune_gridsearch(model = 'ada'):
     """
-    wrap dt model with gridSearchCV
-    特定MLA的参数取值范围都是类似的，所以写这类方法主要是为了偷懒，主要内容就是设定param_grid
-    output:
-        out: type of model_selection.GridSearchCV
+    ada: AdaBoostClassifier
     """
-    param_grid = {
-            'criterion': ['gini', 'entropy'], # default gini
-            'splitter': ['best', 'random'], # default best
-            'max_depth': [2, 4, 6, 8, 10, None], # default None
-            'min_samples_split': [2, 5, 10, .03, .05], # minimum subset size before new split, default 2
-            'min_samples_lear': [1, 5, 10, .03, .05], # minimum subset size after new split, default 1
-            'max_features': [None, 'auto'], # max features to consider when performing split; default noen or all
-            'random_state': [0] # seed or control random number generator
-            }
-    cv_split = model_selection.ShuffleSplit(n_splits = 10, test_size = .3, train_size = .6, random_state = 0)
-    print(list(model_selection.ParameterGrid(param_grid)))
-    tune_model = model_selection.GridSearchCV(tree.DecisionTreeClassifier(), param_grid = param_grid,
-            scoring = 'roc_auc', cv = cv_split)
-    return tune_model
-
-def finetune_extc_gridsearch():
-    param_grid = {
-            'max_depth': [None],
-            'max_features': [1,3,7],
-            'min_samples_split': [2,3,7],
-            'min_samples_lear': [1,3,7],
-            'bootstrap': [False],
-            'n_estimators': [300,600],
-            'criterion': ['gini']
-            }
-    #cv_split = model_selection.ShuffleSplit(n_splits = 10, test_size = .3, train_size = .6, random_state = 0)
-    kfold = model_selection.StratifiedKFold(n_splits = 10)
-    tune_model = GridSearchCV(ExtraTreesClassifier(), param_grid = param_grid, cv = kfold, scoring = 'accuracy', verbose = 1)
-    return tune_model
-
-def finetune_gbc_gridsearch():
-    GBC = GradientBoostingClassifier()
-    param_grid = {
-            'loss': ['deviance'],
-            'n_estimators': [100, 200, 300],
-            'learning_rate': [0.1, 0.05, 0.01],
-            'max_depth': [4, 8],
-            'min_samples_leaf': [100, 150],
-            'max_features': [0.3, 0.1]
-            }
-    kfold = model_selection.StratifiedKFold(n_splits = 10)
-    tune_model = GridSearchCV(GBC, param_grid = param_grid, cv = kfold, scoring = 'accuracy', verbose = 1)
-    return tune_model
-
-def finetune_svc_gridsearch():
-    SVMC = SVC(probability = True)
-    param_grid = {
-            'kernel': ['rbf'],
-            'gamma': [0.001, 0.01, 0.1, 1],
-            'C': [1, 10, 50, 100, 200, 300, 1000]
-            }
-    kfold = model_selection.StratifiedKFold(n_splits = 10)
-    tune_model = GridSearch(SVMC, param_grid = param_grid, cv = kfold, scoring = 'accuracy', verbose = 1)
-    return tune_model
-
-def finetune_rf_gridsearch():
-    """
-    random forest
-    """
-    param_grid = {
-            'max_depth': [None],
-            'max_features': [1,3,7],
-            'min_samples_split': [2,3,7],
-            'min_samples_leaf': [1,3,7],
-            'bootstrap': [False],
-            'n_estimators': [300, 600],
-            'criterion': ['gini']
-            }
-    kfold = model_selection.StratifiedKFold(n_splits = 10)
-    tune_model = GridSearchCV(random_forest, param_grid = param_grid, cv = kfold, scoring = 'accuracy', verbose = 1)
+    param_grid, mod = _get_param_grid_for_gridsearch(model = 'ada')
+    cv_split = model_selection.ShuffleSplit(n_slits = 10, test_size = .3, train_size = .6, random_state = 0)
+    tune_model = model_selection.GridSearchCV(mod, param_grid = param_grid, scoring = 'roc_auc', cv = cv_split)
     return tune_model
 
 def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion matrix', cmap = plt.cm.Blues):
@@ -224,3 +176,128 @@ def run_models(x_train, y_train, mla):
         row_index += 1
     MLA_compare.sort_values(by = ['MLA Test Accuracy Mean'], ascending = False, inplace = True)
     return MLA_compare
+
+####################
+## assist functions
+####################
+def _get_param_grid_and_model_for_gridsearch(model = 'ada'):
+    """
+    input:
+        model: type of model
+    output:
+        param_grid, type of dict
+        mod: MLA model 
+    """
+    if model == 'adaBoost':
+        grid_param = {
+                'n_estimators': grid_n_estimator, # default = 50
+                'leanring_rate': grid_learn, # default = 1
+                #'algorithm': ['SAMME', 'SAMME.R'], # default = 'SAMME.R'
+                'random_state': grid_seed
+                }
+        mod = ensemble.AdaBoostClassifier()
+    elif model == 'bagging':
+        grid_param = {
+                'n_estimators': grid_n_estimator, # default = 10
+                'max_samples': grid_ratio, # default = 1.0
+                'random_state': grid_seed
+                }
+        mod = ensemble.BaggingClassifier()
+    elif model == 'extraTrees':
+        grid_param = {
+                'n_estimators': grid_n_estimator, # default  = 10
+                'criterion': grid_criterion, # default = 'gini'
+                'max_depth': grid_max_depth, # default = None
+                'random_state': grid_seed
+                }
+        mod = ensemble.ExtraTreesClassifier()
+    elif model == 'gradientBoosting':
+        grid_param = {
+                'loss': ['deviance', 'exponential'], # default = 'deviance'
+                'learning_rate': [.05], # default = 0.1
+                'n_estimators': [300], # default = 100
+                'criterion': ['friedman_mse', 'mse', 'mae'], # default = 'friedman_mse'
+                'max_depth': grid_max_depth, # default = 3
+                'random_state': grid_seed
+                }
+        mod = ensemble.GradientBoostingClassifier()
+    elif model == 'randomForest':
+        grid_param = {
+                'n_estimators': grid_n_estimator, # default = 0
+                'criterion': grid_criterion, # default = 'gini'
+                'max_depth': grid_max_depth, # default = None
+                'oob_score': [True], # default = False
+                'random_state': grid_seed
+                }
+        mod = ensemble.RandomForestClassifier()
+    elif model == 'gaussianProcess':
+        grid_param = {
+                'max_iter_predict': grid_n_estimator, # default = 100
+                'random_state': grid_seed
+                }
+        mod = gaussian_process.GaussianProcessClassifier()
+    elif model == 'decisionTree':
+        param_grid = {
+                'criterion': ['gini', 'entropy'], # default gini
+                'splitter': ['best', 'random'], # default best
+                'max_depth': [2, 4, 6, 8, 10, None], # default None
+                'min_samples_split': [2, 5, 10, .03, .05], # minimum subset size before new split, default 2
+                'min_samples_lear': [1, 5, 10, .03, .05], # minimum subset size after new split, default 1
+                'max_features': [None, 'auto'], # max features to consider when performing split; default noen or all
+                'random_state': [0] # seed or control random number generator
+                }
+        mod = tree.DecisionTreeClassifier()
+    elif model == 'logisticRegression':
+        grid_param = {
+                'fit_intercept': grid_bool, # default = True
+                #'penalty': ['11', '12'],
+                'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'], # default: lbfgs
+                'random_state': grid_seed
+                }
+        mod = linear_model.LogisticRegressionCV() # ??
+    elif model == 'bernoulliNB':
+        grid_param = {
+                'alpha': grid_ratio, # default1.0
+                }
+        mod = naive_bayes.BernoulliNB()
+    elif model == 'kNeighbors':
+        grid_param = {
+                'n_neighbors': [1, 2, 3, 4, 5, 6, 7], # default = 5
+                'weights': ['uniform', 'distance'], #default = 'uniform'
+                'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
+                }
+        mod = neighbors.KNeighborsClassifier()
+    elif model == 'svc':
+        grid_param = {
+                'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
+                'C': [1, 2, 3, 4, 5], # default = 1.0
+                'gamma': grid_ratio, # default = auto
+                'decision_function_shape': ['ovo', 'ovr'], # default = ovr
+                'probability': [True],
+                'random_state': grid_seed
+                }
+        mod = svm.SVC(probability = True)
+    elif model == 'xgbc':
+        grid_param = {
+                'learning_rate': grid_learn, # default = .3
+                'max_depth': [1, 2, 4, 6, 8, 10], # default = 2
+                'n_estimators': grid_n_estimators,
+                'seed': grid_seed
+                }
+        mod = XGBClassifier
+    else:
+        print('unrecognized model: '+ model)
+    return grid_param, mod
+
+
+####################
+## global attributes
+####################
+grid_n_estiamtor = [10, 50, 100, 300]
+grid_ratio = [.1, .25, .5, .75, 1.0]
+grid_learn = [.01, .03, .05, .1, .25]
+grid_max_depth = [2, 4, 6, 8, 10, None]
+grid_min_samples = [5, 10, .03, .05, 10]
+grid_criterion = ['gini', 'entropy']
+grid_bool = [True, False]
+grid_seed = [0]
