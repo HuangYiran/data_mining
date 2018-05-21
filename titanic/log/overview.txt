@@ -1,0 +1,23 @@
+1. 各个属性概述
+综述，共891个数据，2个float类型，5个int类型，5个object类型
+PassengerId: drop
+Survived 目标属性，指示对象是否存活，类型int，存活率仅咱三成
+Pclass 作为类型，类型int，分三类，用1，2，3表示，分别对应1，2，3等，大部分乘客乘坐3等仓
+Name 乘客名称，类型Object，由名字，称呼，姓氏三部分组成 -》 可提取称呼
+Sex 乘客性别，类型Object -》可转化为int类型
+Age 乘客年龄，类型float，存在null值，最小0.4岁，最大80，平均30岁 -》 可转为整形，并做去空值处理
+Sibsp 船上兄妹和配偶的总人数，值域0到8，平均0.5，类型int
+Parch 船上父母和子孙的总人数，类型int，值域0到6，平均0.3
+Ticket 船票号，类型Object，-》 或可提取信息
+Fare 价格，类型float, 平均价格32，值域0到512，平均32
+Cabin 包厢号，类型Object，存在大量空值 -》 可转为整形，可做空值处理
+Embarked 登船的港口，类型Object，共有三个港口，存在空值 -》 可转为整形，可做空值处理。
+
+2. 根据上面分析，确定下一步应该进行的操作：
+主要是针对4C，哪些属性需要填空，哪些需要转换，哪些需要排异
+1) Age,Cabin, Embarked存在空值
+2) Name, Sex, Ticket, Cabin, Embarked是Object类型的
+3) Pclass, Age, Sibsp, Parch, Fare 进行数值异常检测
+4) Object对象异常检测比较痛苦，一般通过count和肉眼
+5) age, Fare甚至Sibsp，Parch的值域比较大，可通过分段分类来概括取值。
+6) 对age等分布比较畸形的或存活率分布区分比较清晰的，可以以此做分段。
