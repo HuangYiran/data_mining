@@ -184,10 +184,10 @@ def run_models(x_train, y_train, mla, x_test = None):
         MLA_compare.loc[row_index, 'MLA Train Accuracy Mean'] = cv_results['train_score'].mean()
         MLA_compare.loc[row_index, 'MLA Test Accuracy Mean'] = cv_results['test_score'].mean()
         MLA_compare.loc[row_index, 'MLA Test Accuracy 3*STD'] = cv_results['test_score'].std() * 3
-	if x_test is not None:
-	    MLA_predict[MLA_name] = alg.predict(x_test)
-	else:
-	    MLA_predict[MLA_name] = alg.predict(x_train)
+        if not x_test is None:
+            MLA_predict[MLA_name] = alg.predict(x_test)
+        else:
+            MLA_predict[MLA_name] = alg.predict(x_train)
         row_index += 1
     MLA_compare.sort_values(by = ['MLA Test Accuracy Mean'], ascending = False, inplace = True)
     MLA_predict_pd = pd.DataFrame.from_dict(MLA_predict)
