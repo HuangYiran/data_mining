@@ -48,28 +48,50 @@ def create_date_feature_daytime(df = None, date = None):
     df['dayOfMonth'] = df[date].dt.day #???
     df['year'] = df[date].dt.year
     df['month'] = df[date].dt.month
+    return df
 
-def create_date_feature_is_public_holiday(df = None, date = None, country = 'US'):
+def create_date_feature_is_public_holiday(df, date, start, end, country = 'US'):
     """
     create date feature: is holiday
-    cal = USFederalHolidayCalendar()
-    holidays = cal.holidays(start='2014-01-01', end='2014-12-31').to_pydatetime()
-    if datetime.datetime(2014,01,01) in holidays:
-        print True
+    only support USFederal Holiday
     """
-    #TODO
+    cal = USFederalHolidayCalendar()
+    holidays = cal.holidays(start=start, end=end).to_pydatetime()
+    foo = lambda x: 1 if x in holidays else 0
+    df['is_holiday'] = df[date].map(foo)
+    return df
 
-def create_date_feature_is_month_end(df = None, date = None):
+def create_date_feature_is_month_end(df = None, date = None, last = 1):
     """
     create date features: is month end
+    input:
+        df: DataFrame
+            the data frame input
+        date: String
+            the column name of the date
+        last: int
+            the number of day that will be count
+    output:
+        df
     """
-    #TODO
+    def _last_day_of_month(date):
+        if date.month == 12:
+            return date.replace(day=31)
+        return date.replace(month=date.month+1, day=1) - datetime.timedelta(days=last)
+    df[date] = pd.to_datetime(df[date])
+    last_day = _last_day_of_month(df[date])
+    df['is_month_end'] = df[date] >= last_day
+    df['is_month_end'] = df['is_month_end'].map({True:1, False:0})
+    return df
 
 def create_date_feature_is_weekend(df = None, date = None):
     """
     create date feature: is weekend
     """
-    #TODO
+    df[date] = pd.to_datetime(df[date])
+    df['is_weekend'] = df[date].dt.day>5
+    df['is_weekend'].replace({True:1, False:0})
+    return df
 
 def create_date_feature_is_weekday(df = None, date = None):
     """
@@ -81,7 +103,10 @@ def create_date_feature_season(df = None, date = None):
     """
     create date feature: season
     """
-    #TODO
+    foo = lambda x: 1 if x in range(3,6) else 2 if x in range(6,9) else 3 if x in range(9, 12) else 4 if x in range(12,3) else 0
+    df[date] = pd.to_datetime(df[date])
+    df['season'] = df[date].map(foo)
+    return df
 
 def create_grid(df = None, keys = None , target = None):
     """
