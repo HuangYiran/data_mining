@@ -13,14 +13,22 @@ def show_tools():
     """
     list the tools included in this package
     """
-    print("
+    print("""
             List the tools available in this package:
             create_date_features(df, date) #TODO
+            create_date_feature_bisiness_quater(df = None, date = None)
+            create_date_feature_daytime(df = None, date = None)
+            create_date_feature_is_public_holiday(df, date, start, end, country = 'US')
+            create_date_feature_is_month_end(df = None, date = None, last = 1)
+            create_date_feature_is_weekend(df = None, date = None)
+            create_date_feature_is_weekday(df = None, date = None)
+            create_date_feature_season(df = None, date = None)
             create_grid(df, keys, target) #TODO
             create_lag_features_with_time_feature(df, cols, time, n = 5, fillna = True)
-            create_lag_features_ohen_time_feature(df, cols, n = 5, fillna = True)
+            create_lag_features_ohne_time_feature(df, cols, n = 5, fillna = True)
+            create_window_feature(df, cols = None, col2 = None, win_size = 2, win_type = None, min_periods = 1, agg = 'mean')
             mean_encoder(df, cols, tg)
-            ")
+            """)
 
 def create_date_features(df = None, date = None):
     """
@@ -161,7 +169,7 @@ def create_lag_features_with_time_feature(df = None, cols = None, time = None, n
     gc.collect()
     return df
 
-def create_lag_features_ohen_time_feature(df = None, cols = None, n = 5, fillna = True):
+def create_lag_features_ohne_time_feature(df = None, cols = None, n = 5, fillna = True):
     """
     create lag feature, before creating the features we need to sort the dataframe with time:
     input:

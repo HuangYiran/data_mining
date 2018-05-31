@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from sklearn.cluster import KMeans, DBSCAN
 
 def show_tools():
     print("""
@@ -29,17 +29,30 @@ def show_tools():
     4. 判断一个属性是否有存在的必要的标准就是，这个属性是否会对，目标造成影响，最直观的表现就是各个取值的目标率相差是否比较大。
 
     """)
-def classifiy_with_clauster(df, tg, fs):
+def classify_with_k_means(df, fs, n_cluster = 8, init = 'k-means++', n_init = 10, max_iter = 300, tol = 0.001, precompute_distance = 'auto', verbose = 0, random_state = None, copy_x = True, n_jobs = 1, algorithm = 'auto'):
     """
     Convert的一个重点就是进行分段，我们可以用clauster的方法来完成这个操作
     input:
         df: the dataframe
-        tg: target feature
         fs: the features input
+        k: number of the cluster
     output:
         nf: the new feature
+    未测试
     """
-    #TODO 
+    # get training data
+    mod = KMeans(n_cluster, init, n_init, max_iter, tol, precompute_distance, verbose, random_state, copy_x, n_jobs, algorithm)
+    kmeans = mod.fit(df[fs])
+    # name function
+    df['_'.join(fs)+'kmeans'] = kmeans(df[fs])
+    return df
+
+def classify_with_mla(df, mla, fs, tg):
+    """
+    classify the attribute with machine learning algorithm default setting.
+    only classify mla can be used here
+    """
+    #TODO
     pass
 
 def fix_skew(df, fs):
@@ -107,7 +120,7 @@ def show_pairplots(df, tg, fs):
 def show_skew(df):
     """
     show the skewness of each feature in the df.
-    When a feature distribution is very skewed ot left, This can lead to overweighting the model with very high values.
+    When a feature distribution is very skewed to left, This can lead to overweighting the model with very high values.
     In this case, we have better to transform it with the log function to reduce the skewness and redistribute the data.
     input:
         df: the dataframe

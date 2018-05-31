@@ -91,6 +91,12 @@ def show_tools():
         submit = pd.concat([PassengerID, test_Survived], axis = 1)
         submit.to_csv('../submit.csv', index = False)
         ps. 一个问题是，这种投票机制，无法实现为各个子model私人定制训练属性。因此只能先超参选后，最后加一个总的属性选，要克服这个问题，应该自己重写一个ensemble的方法，实现用训练好的模型进行投票。(为完成)
+        0. self defined methods
+        finetune_gridsearch(model = 'ada')
+        plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion matrix', cmap = plt.cm.Blues)
+        plot_learning_curve(estimator, title, X, y, ylim = None, cv = None, n_jobs = -1, train_sizes = np.linspace(.1,1.0,5))
+        run_models(x_train, y_train, mla, x_test = None)
+        run_models_with_finetune(x_train, y_train, mla, x_test = None)
     """)
 
 def finetune_gridsearch(model = 'ada'):

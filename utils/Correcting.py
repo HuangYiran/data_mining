@@ -6,6 +6,8 @@ def show_tools():
     print("""
     for numeric feature we can use this method:
         detect_outliers_with_IQR(df, n, features) # n is the min number of outlier
+        detect_outliers_with_IQR_groupby(df, n , features, gb = None)
+        detect_outliers_with_object_account(df, n, features)
     for the outlier we can either delete it or fill a new value as in Complete. We make the decision according to the final loss.
         train=train.drop(Outliers_to_drop, axis = 0).reset_index(drop=True)
     """)
