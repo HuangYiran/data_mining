@@ -1,4 +1,4 @@
-This Repository is used to collected(write) some useful methods that can be used in data mining task.
+This Repository is used to collect(write) some useful methods that can be used in data mining task.
 All this function is stored under the dir utils. These methods include:
 ##### Prepare
 introduce some useful package that can be used in the process of data mining 
@@ -60,7 +60,7 @@ introduce some useful package that can be used in the process of data mining
 - show_pairplots(df, fs)
 
 ##### Creating
-- vreate_basic_statistic_groupby(df, fs, groupby = None)
+- create_basic_statistic_groupby(df, fs, groupby = None)
 
 ##### Modelling(only show self define functions here)
 - finetune_gridsearch(model = 'ada')
