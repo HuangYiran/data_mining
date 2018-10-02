@@ -1,117 +1,72 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
+#! -*- coding: utf-8 -*-
+import sys
+sys.path.append('./utils/function')
+import Converting
 
+from abc import ABCMeta, abstractmethod
 
-def show_tools():
-    print("""
-    In this phase we need to engineering each feature, and there are no shortcut here.
-    from sklearn.preprocessing import LabelEncoder
-    label = LabelEncoder()
-    label.fit_transform(dataset['Sex'])
-    
-    we also provide some methods like to show_skew to help to analyse and fix the feature
-    # show figures
-    show_kde(df, tg, fs)
-    show_skew(df)
-    # change data
-    fix_skew(df, fs)
-    # distribution
-    classify_with_clauster(df, tg, fs)
-    # corr figure
-    show_corr_heatmap(df, fs)
-    show_pairplots(df, fs)
+class Converting(ABCMeta):
+    def __init__(verbose = False):
+        self.verbose = verbose
 
-    ps1. 这部分过程比较考验经验，给一个统计图表，能不能从中提取出有用的信息，一定程度上决定了最终结果的好坏。
-为了不那么晕，一般都是以多层for循环的方式，逐步进行分析的。最好能够了解不同的plot能够比较好的描述哪方面的信息。比如boxplot比较适用于比较概括的分布的对比，而violineplot则能够比较好的描述
-    1. 个人感觉，还是kde图比较能够说明事情，既可以表示分布状况又可以看出目标比例。还有一个就是FacetGrit也比较好，可以分row，col，hue三个维度进行比较。
-    2. 另外，以上都是通过理智分析，来获得新的属性，是否存在一个方法，可以让他子集生成有用的新的属性呢、
-    3. 现在看到的这些分段，大部分都不是在第一次画图后就确定下来的方案(比如分几段，在哪里分段等等)，一般都有多个备用方案，具体使用哪个，都是由最后预测的正确率来决定的
-    4. 判断一个属性是否有存在的必要的标准就是，这个属性是否会对，目标造成影响，最直观的表现就是各个取值的目标率相差是否比较大。
+    @abstractmethod
+    def forward(self, df, cols = None):
+        pass
 
-    """)
-def classifiy_with_clauster(df, tg, fs):
-    """
-    Convert的一个重点就是进行分段，我们可以用clauster的方法来完成这个操作
-    input:
-        df: the dataframe
-        tg: target feature
-        fs: the features input
-    output:
-        nf: the new feature
-    """
-    #TODO 
-    pass
+    def __call__(self, df, cols):
+        self.forward(df, cols)
 
-def fix_skew(df, fs):
+####################
+## table create  ###
+####################
+class ConvertToFreqTable(Converting):
     """
-    fix the very skewed feature in the df, with log function
-    input:
-        df: the dataframe
-        fs: the feature we need to fix
+    原本记录的是物品名称以及对应的销售日期，通过这个方法可以统计，在每个时间点该物品出现的次数。
     """
-    #TODO
-    pass
+    def __init__(self, verbose = False):
+        super(ConvertToFreqTable, self).__init__(verbose)
 
-def show_corr_heatmap(df, fs):
-    """
-    draw the pearson correlation heatmap with the fs in the df
-    the fs type should be able to conver to float
-    input:
-        df: dataframe
-        fs: list of features
-    """
-    #TODO assert
-    dat = df[fs]
-    colormap = plt.cm.RdBu
-    plt.figure(figsize = (14,12))
-    plt.titles('Pearson Correlation of Features', y = 1.04, size =15)
-    sns.heatmap(train.astype(float).corr(),
-            linewidths = 0.1,
-            vmax = 1.0,
-            square = True,
-            cmap = colormap,
-            linecolor = 'white',
-            annot = True)
+    def forward(df, cols):
+        return Converting.to_freq_table(df, cols)
 
-def show_kde(df,tg,fs):
+class ConvertToAuftragTable(Converting):
     """
-    apply kdeplot in the selected feature.
-    input:
-        df: dataframe
-        tg: terget feature
-        fs: selected features
-    process:
-        check features' type
-        apply kdeplot
+    原本每个item记录的是，转单号，物品名字以及其他信息，通过这个方法可以把同一账单的多个物品进行统合，也就是同一个账单都包含有哪些物品
     """
-    #TODO 
-    pass
+    def __init__(self, verbose = False):
+        super(ConvertToAuftragTable, sefl).__init__(verbose)
 
-def show_pairplots(df, tg, fs):
-    """
-    draw pairplots
-    input:
-        df: the dataframe
-        tg: target feature
-        fs: list of features
-    """
-    g = sns.pairplot(df[fs],
-            hue = tg,
-            palette = 'seismic',
-            size = 1.2,
-            diag_kind = 'kde',
-            diag_kws = dict(shade = True),
-            plot_kws = dict(s = 10))
-    g.set(xticklabels = [])
+    def forward(df, cols):
+        return Convrting.to_auftrag_table(df, cols)
 
-def show_skew(df):
+class ConvertToCountTable(Converting):
     """
-    show the skewness of each feature in the df.
-    When a feature distribution is very skewed ot left, This can lead to overweighting the model with very high values.
-    In this case, we have better to transform it with the log function to reduce the skewness and redistribute the data.
-    input:
-        df: the dataframe
+    convert a object column to a count table, this table include two columns, 
+    The first column is the target object attribute, and the second column is the count of the value
+    We sort the table according to the count of the value
     """
-    #TODO
-    pass
+    def __init__(self, verbose = False):
+        super(ConvertToCountTable, self).__init__(verbose)
 
+    def forward(df, cols):
+        """
+        input:
+            cols list of string:
+                only take the first value as the target value, 
+        output:
+            out dataframe:
+                dataframe contains two columns, one for target attribute one for count. dataframe sorted by count
+        """
+        return Converting.to_count_table(df, cols)
+
+class ConvertToStatisticTable(Converting):
+    """
+    like the describe function, but with more statistic value
+    """
+    def __init__(self, include_object = True, verbose = False):
+        super(ConvertToStatisticTable, self).__init__(verbose)
+        self._ino = include_object
+
+    def forward(df, cols):
+        #TODO implement the method
+        return Converting.to_statistic_table(df, cols, self._ino)
