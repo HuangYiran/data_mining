@@ -415,9 +415,230 @@ def main():
         out.append(tmp)   
     logger.info('finish creating features: time relvative')
     logger.info('saving temmporary dataframe')
-    df = pd.concat(out)
-    df.to_pickle('df_after_feature_extraction.pkl') 
-    logger.info('end')
+    df3 = pd.concat(out)
+    df3.to_pickle('df_after_feature_extraction.pkl') 
+    logger.info('extract feature, weather a customer will come in X months for special Gruppe-Nr')
+    tg = df3.copy()
+    tg['weather_come_in_1_month'] = tg['time_distance_to_next'] < timedelta(days = 1*30)
+    tg['weather_come_in_2_month'] = tg['time_distance_to_next'] < timedelta(days = 2*30)
+    tg['weather_come_in_3_month'] = tg['time_distance_to_next'] < timedelta(days = 3*30)
+    tg['weather_come_in_4_month'] = tg['time_distance_to_next'] < timedelta(days = 4*30)
+    tg['weather_come_in_5_month'] = tg['time_distance_to_next'] < timedelta(days = 5*30)
+    tg['weather_come_in_6_month'] = tg['time_distance_to_next'] < timedelta(days = 6*30)
+    df3 = tg
+    del tg
+    gc.collect()
+    logger.info('deal with NA value in df')
+    nd = df.copy()
+    # fill na with unknown
+    fs_to_un = ['Markencode', 'Adressanredecode', 'Motorcode', 'Fahrzeugmodellnummer', 'Modell',
+               'Typ', 'Getriebecode', 'Gewicht', 'Leistung (KW)', 'Erstzulassungsdatum']
+    for col in fs_to_un:
+        nd[col] = nd[col].fillna('unknown')
+    nd['age_auto'] = nd['age_auto'].fillna(0)
+    df = nd
+    del nd
+    gc.collect()
+    loger.info('deal with NA value in df3')
+    ndf = df3.copy()
+    # drop times == 1
+    ndf = ndf.drop(ndf[ndf['times'] == 1].index)
+    # fill with 0
+    fs_fill_0 = ['frequent_in_last_1_month', 'frequent_in_last_2_month', 'frequent_in_last_3_month', 
+                'frequent_in_last_4_month', 'frequent_in_last_5_month', 'frequent_in_last_6_month',
+                'num_act_shift1', 'num_act_shift2', 'num_teile_shift1', 'num_teile_shift2', 'total_aw_shift1',
+                'total_aw_shift2']
+    for col in fs_fill_0:
+        ndf[col] = ndf[col].fillna(0)
+    # fill with 0 timedelta
+    ndf['repair_age'] = ndf['repair_age'].fillna(timedelta(0))
+    # fill with mean: km_distance_from_last, km_distance_to_next
+    ndf['km_distance_from_last'][ndf['km_distance_from_last'].isna()] = ndf['mean_km_distance_in_group'][ndf['km_distance_from_last'].isna()]
+    ndf['km_distance_from_last'] = ndf['km_distance_from_last'].fillna(ndf['km_distance_from_last'].mean()) # fill the rest with total mean
+    ndf['km_distance_to_next'][ndf['km_distance_to_next'].isna()] = ndf['mean_km_distance_in_group'][ndf['km_distance_to_next'].isna()]
+    ndf['km_distance_to_next'] = ndf['km_distance_to_next'].fillna(ndf['km_distance_to_next'].mean())
+    # fill with mean: time_distance_from_last
+    # timedelta changed to int automatically, why???
+    def set_f2_to_f1(x, feature1, feature2):
+        #print(x['time_distance_from_last'])
+        if type(x[feature1]) == type(pd.NaT):
+            x[feature1] = x[feature2]
+        return x
+    ndf = ndf.apply(set_f2_to_f1, axis = 1, args = ['time_distance_from_last', 'mean_time_distance_in_group'])
+    ndf = ndf.apply(set_f2_to_f1, axis = 1, args = ['time_distance_to_next', 'mean_time_distance_in_group'])
+    # extract the feature, that we may will used in the training
+    fs = ['Auftragsdatum', 'Fahrgestellnummer', 'frequent_in_2014', 'frequent_in_2015', 'frequent_in_2016',
+         'frequent_in_2017', 'frequent_in_2018', 'frequent_in_last_1_month', 'frequent_in_last_2_month',
+         'frequent_in_last_3_month', 'frequent_in_last_4_month', 'frequent_in_last_5_month', 'frequent_in_last_6_month',
+         'km_distance_from_last', 'max_km_distance_in_group', 'min_km_distance_in_group', 'mean_km_distance_in_group',
+         'mean_time_distance_in_group', 'max_time_distance_in_group', 'min_time_distance_in_group', 
+         'num_act_shift1', 'num_act_shift2', 'num_teile_shift1', 'num_teile_shift2', 'repair_age',
+         'time_distance_from_last', 'total_aw_shift1', 'total_aw_shift2', 'trend_of_frequent_in_the_past',
+         'weather_come_in_last_1_month', 'weather_come_in_last_2_month', 'weather_come_in_last_3_month',
+         'weather_come_in_last_4_month', 'weather_come_in_last_5_month', 'weather_come_in_last_6_month',
+         'weather_come_in_1_month', 'weather_come_in_2_month', 'weather_come_in_3_month', 'weather_come_in_4_month',
+         'weather_come_in_5_month', 'weather_come_in_6_month']
+    ndf = ndf[fs]
+    # remember that, we still have feature in df, so we have to merge the df3 back to df.
+    # we name it df2 here for test
+    df2 = pd.merge(df, ndf, on = ['Fahrgestellnummer', 'Auftragsdatum'], how = 'right')
+    loger.info('deal with outlier in df and clip')
+    ol = df2.copy()
+    # Gewicht
+    ol['Gewicht'][ol['Gewicht'] == 'unknown'] = '0,00'
+    # Leistung (KW)
+    ol['Leistung (KW)'][ol['Leistung (KW)'] == 'unknown']  = 0.0
+    #df2.info()
+    df2 = ol
+    del ol
+    gc.collect()
+    loger.info('feature vor discretization')
+    av = df2.copy()
+    # Adressanredecode
+    av['Adressanredecode'].loc[(av['Adressanredecode'] != 'Firma') & (av['Adressanredecode'] != 'Herr') & (av['Adressanredecode'] != 'Frau')] = 'other'
+    # Motorcode: distribute according to the first Ziffer
+    av['Motorcode'] = av['Motorcode'].map(lambda x: str(x).lower()[0] if x else x)
+    # Motorcode: change the Motorcode which start with a number
+    av['Motorcode'][av['Motorcode'].map(lambda x: True if re.search('[0-9\-]', x) else False)] = 'unknown'
+    # Motorcode: change the Motorcode which account smaller than 100
+    # combine items in Motor count < 100 will be set to other
+    tmp = av.copy()
+    tmp['count'] = 1
+    motor = tmp[['Motorcode', 'count']]
+    mc = motor.groupby('Motorcode', as_index = False).count()
+    tmp = pd.merge(av, mc, how = 'left', on = 'Motorcode')
+    tmp.loc[tmp['count'] < 100, 'Motorcode'] = 'others'
+    tmp.drop('count', axis= 1, inplace= True)
+    av = tmp
+    # Fahrzeugmodellnummer
+    tmp = av.copy()
+    tmp['count'] = 1
+    motor = tmp[['Fahrzeugmodellnummer', 'count']]
+    mc = motor.groupby('Fahrzeugmodellnummer', as_index = False).count()
+    tmp = pd.merge(av, mc, how = 'left', on = 'Fahrzeugmodellnummer')
+    tmp.loc[tmp['count'] < 100, 'Fahrzeugmodellnummer'] = 'others'
+    tmp.drop('count', axis= 1, inplace= True)
+    av = tmp
+    # modell nummer
+    tmp = av.copy()
+    tmp['count'] = 1
+    motor = tmp[['Modell', 'count']]
+    mc = motor.groupby('Modell', as_index = False).count()
+    tmp = pd.merge(av, mc, how = 'left', on = 'Modell')
+    tmp.loc[tmp['count'] < 100, 'Modell'] = 'others'
+    tmp.drop('count', axis= 1, inplace= True)
+    av = tmp
+    # getriebecode
+    tmp = av.copy()
+    tmp['count'] = 1
+    motor = tmp[['Getriebecode', 'count']]
+    mc = motor.groupby('Getriebecode', as_index = False).count()
+    tmp = pd.merge(av, mc, how = 'left', on = 'Getriebecode')
+    tmp.loc[tmp['count'] < 100, 'Getriebecode'] = 'others'
+    tmp.drop('count', axis= 1, inplace= True)
+    av = tmp
+    # Typ
+    tmp = av.copy()
+    tmp['count'] = 1
+    motor = tmp[['Typ', 'count']]
+    mc = motor.groupby('Typ', as_index = False).count()
+    tmp = pd.merge(av, mc, how = 'left', on = 'Typ')
+    tmp.loc[tmp['count'] < 100, 'Typ'] = 'others'
+    tmp.drop('count', axis= 1, inplace= True)
+    av = tmp
+    df2 = av
+    del av
+    gc.collect()
+    loger.info('encoding')
+    ec = df2.copy()
+    features_to_ordinal = ['Markencode', 'Fahrzeugmodellnummer', 'Modell', 'Getriebecode']
+    ordinal_encoder = OrdinalEncoder()
+    # select faetures
+    sf = ec[features_to_ordinal]
+    # name
+    name_ordinal_encode = [f + '_ordinal_encode' for f in features_to_ordinal]
+    # fit and transform
+    ordinal_encoder.fit(sf)
+    tmp = ordinal_encoder.transform(sf)
+    # create Dataframe
+    tmp = pd.DataFrame(tmp, columns = name_ordinal_encode)
+    # combine
+    ec = pd.concat([ec, tmp], axis = 1)
+    # del and gc
+    del sf, tmp, features_to_ordinal, ordinal_encoder
+    gc.collect()
+    features_to_onehot = ['Lagerortcode', 'Adressanredecode', 'Motorcode', 'age_autohaus', 'Typ']
+    onehot_encoder = OneHotEncoder()
+    for feature in features_to_onehot:
+        sf = ec[feature]
+        tmp = onehot_encoder.fit_transform(sf.values.reshape(-1, 1)).toarray()
+        _, l = tmp.shape
+        columns = [feature + '_onehot_' + str(i) for i in range(l)]
+        tmp = pd.DataFrame(tmp, columns = columns)
+        ec = pd.concat([ec, tmp], axis = 1)
+    # del and gc
+    del sf, tmp, columns
+    gc.collect()
+    df2 = ec
+    del ec
+    gc.collect()
+    loger.info('discretization')
+    fc = df2.copy()
+    # Gewicht
+    fc['Gewicht'] = fc['Gewicht'].map(lambda x: re.sub(',', '.', x))
+    # binning, number of bin???????
+    # use onehot to do the encode, would be better???
+    # when n_bins larger als 3, it throws ecxeption: bins must be monotonically increasing or decreasing ???
+    n_bins = 2
+    bin_width = KBinsDiscretizer(n_bins = n_bins, encode = 'onehot', strategy = 'uniform')
+    bin_deep = KBinsDiscretizer(n_bins = n_bins, encode = 'onehot', strategy = 'quantile')
+    bin_kmeans = KBinsDiscretizer(n_bins = n_bins, encode = 'onehot', strategy = 'kmeans')
+    # features to do the binning
+    features_to_binning = ['num_act', 'total AW', 'KM-Stand', 'Gewicht', 'Leistung (KW)', 'age_auto',
+                           'Markencode_ordinal_encode', 'Fahrzeugmodellnummer_ordinal_encode', 'Modell_ordinal_encode']
+    # bining with ordinal encoder
+    # select faetures
+    tmp = fc[features_to_binning]
+    # set name
+    name_width = [f + '_bin_width' for f in features_to_binning]
+    name_deep = [f + '_bin_deep' for f in features_to_binning]
+    name_kmeans = [f + '_bin_kmeans' for f in features_to_binning]
+    # fit and transform
+    bin_width.fit(tmp)
+    bin_deep.fit(tmp)
+    bin_kmeans.fit(tmp)
+    tmp_w = bin_width.transform(tmp)
+    tmp_d = bin_deep.transform(tmp)
+    tmp_k = bin_kmeans.transform(tmp)
+    # columns names
+    cols_name_width = []
+    cols_name_deep = []
+    cols_name_kmean = []
+    for feature in features_to_binning:
+        for i in range(n_bins):
+            cols_name_width.append(feature + '_onehot_bin_width_' + str(i))
+            cols_name_deep.append(feature + '_onehot_bin_deep_' + str(i))
+            cols_name_kmean.append(feature + '_onehot_bin_kmean_'+ str(i))
+    # transform to Dataframe
+    tmp_w = pd.DataFrame(tmp_w.toarray(), columns = cols_name_width)
+    tmp_d = pd.DataFrame(tmp_d.toarray(), columns = cols_name_deep)
+    tmp_k = pd.DataFrame(tmp_k.toarray(), columns = cols_name_kmean)
+    # concatenate
+    fc = pd.concat([fc, tmp_w, tmp_d, tmp_k], axis = 1)
+    # del and gc
+    del tmp, tmp_w, tmp_d, tmp_k
+    gc.collect()
+    features_to_mdlp = ['num_act', 'total AW', 'KM-Stand', 'Gewicht', 'Leistung (KW)', 'age_auto', 
+                    'Typ_ordinal_encode', 'Fahrzeugmodellnummer_ordinal_encode', 'Modell_ordinal_encode',
+                    'num_teile', 'month', 'year', 'day']
+    label = 'weather_come_in_last_4_month'
+    out_path_data, out_path_bins, return_bins, class_label, features = None, None, False, None, None
+    features = features_to_mdlp
+    class_label = label
+    discretizer = MDLP_Discretizer(dataset=fc, class_label=class_label, features=features, out_path_data=out_path_data, out_path_bins=out_path_bins)
+    tmp = discretizer.apply_cutpoints(out_data_path=out_path_data, out_bins_path=out_path_bins)
+    tmp.to_pickle('discretizer.pkl')
+    loger.info('end')
 
 class ABDict:
     """
